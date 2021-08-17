@@ -28,6 +28,7 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 const (
@@ -36,7 +37,7 @@ const (
 
 type EphemeralDiskCreatorInterface interface {
 	CreateBackedImageForVolume(volume v1.Volume, backingFile string) error
-	CreateEphemeralImages(vmi *v1.VirtualMachineInstance, isBlockVolume map[string]bool) error
+	CreateEphemeralImages(vmi *v1.VirtualMachineInstance, domain *api.Domain) error
 	GetFilePath(volumeName string) string
 	Init() error
 }
@@ -66,7 +67,7 @@ func (c *ephemeralDiskCreator) generateVolumeMountDir(volumeName string) string 
 func (c *ephemeralDiskCreator) getBackingFilePath(volumeName string, isBlockVolume bool) string {
 	if isBlockVolume {
 		return filepath.Join(string(filepath.Separator), "dev", volumeName)
-	} 
+	}
 	return filepath.Join(c.pvcBaseDir, volumeName, "disk.img")
 }
 
@@ -117,13 +118,14 @@ func (c *ephemeralDiskCreator) CreateBackedImageForVolume(volume v1.Volume, back
 	return err
 }
 
-func (c *ephemeralDiskCreator) CreateEphemeralImages(vmi *v1.VirtualMachineInstance, isBlockVolume map[string]bool) error {
+func (c *ephemeralDiskCreator) CreateEphemeralImages(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 	// The domain is setup to use the COW image instead of the base image. What we have
 	// to do here is only create the image where the domain expects it (GetFilePath)
 	// for each disk that requires it.
+	isBlockVolumes := diskutils.GetEphemeralBackingSourceBlockDevices(*domain)
 	for _, volume := range vmi.Spec.Volumes {
 		if volume.VolumeSource.Ephemeral != nil {
-			if err := c.CreateBackedImageForVolume(volume, c.getBackingFilePath(volume.Name, isBlockVolume[volume.Name])); err != nil {
+			if err := c.CreateBackedImageForVolume(volume, c.getBackingFilePath(volume.Name, isBlockVolumes[volume.Name])); err != nil {
 				return err
 			}
 		}
