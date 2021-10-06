@@ -402,6 +402,7 @@ func (t *templateService) addPVCToLaunchManifest(volume v1.Volume, claimName str
 		logger.Errorf("error getting PVC: %v", claimName)
 		return err
 	} else if !exists {
+		logger.Errorf("namespace: %s, store: %+v", namespace, t.persistentVolumeClaimStore)
 		logger.Errorf("didn't find PVC %v", claimName)
 		return PvcNotFoundError(fmt.Errorf("didn't find PVC %v", claimName))
 	} else if isBlock {
